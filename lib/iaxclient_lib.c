@@ -115,15 +115,21 @@ static iaxc_recvfrom_t iaxc_recvfrom = (iaxc_recvfrom_t)recvfrom;
 
 
 static THREAD main_proc_thread;
+#ifdef AUDIO_PULSEAUDIO
 static THREAD second_proc_thread;
+#endif
 #if defined(WIN32) || defined(_WIN32_WCE)
 static THREADID main_proc_thread_id;
+#ifdef AUDIO_PULSEAUDIO
 static THREADID second_proc_thread_id;
+#endif
 #endif
 
 /* 0 running, 1 should quit, -1 not running */
 static int main_proc_thread_flag = -1;
+#ifdef AUDIO_PULSEAUDIO
 static int second_proc_thread_flag = -1;
+#endif
 
 static iaxc_event_callback_t iaxc_event_callback = NULL;
 
@@ -793,7 +799,17 @@ static THREADFUNCDECL(main_proc_thread_func)
 		get_iaxc_lock();
 
 		service_network();
-		
+#ifndef AUDIO_PULSEAUDIO
+		if ( !test_mode )
+			service_audio();
+
+		// Check registration refresh once a second
+		if ( refresh_registration_count++ > 1000/LOOP_SLEEP )
+		{
+			iaxc_refresh_registrations();
+			refresh_registration_count = 0;
+		}
+#endif
 
 		put_iaxc_lock();
 
@@ -807,7 +823,7 @@ static THREADFUNCDECL(main_proc_thread_func)
 
 	return ret;
 }
-
+#ifdef AUDIO_PULSEAUDIO
 static THREADFUNCDECL(second_proc_thread_func)
 {
 	static int refresh_registration_count = 0;
@@ -844,19 +860,21 @@ static THREADFUNCDECL(second_proc_thread_func)
 
 	return ret;
 }
-
+#endif
 EXPORT int iaxc_start_processing_thread()
 {
 	main_proc_thread_flag = 0;
+#ifdef AUDIO_PULSEAUDIO
 	second_proc_thread_flag = 0;
-
+#endif
 	if ( THREADCREATE(main_proc_thread_func, NULL, main_proc_thread,
 				main_proc_thread_id) == THREADCREATE_ERROR)
 		return -1;
+#ifdef AUDIO_PULSEAUDIO
 	if ( THREADCREATE(second_proc_thread_func, NULL, second_proc_thread,
 				second_proc_thread_id) == THREADCREATE_ERROR)
 		return -1;
-
+#endif
 	return 0;
 }
 
@@ -867,12 +885,13 @@ EXPORT int iaxc_stop_processing_thread()
 		main_proc_thread_flag = 1;
 		THREADJOIN(main_proc_thread);
 	}
+#ifdef AUDIO_PULSEAUDIO
 	if ( second_proc_thread_flag >= 0 )
 	{
 		second_proc_thread_flag = 1;
 		THREADJOIN(second_proc_thread);
 	}
-
+#endif
 	return 0;
 }
 
@@ -895,8 +914,10 @@ static int service_audio()
 	{
 		//clock_t t = clock();
 		int q;
-		for (q=0 ;q<1;++q )
+#ifndef AUDIO_PULSEAUDIO
+		for ( ;; )
 		{
+#endif
 			//clock_t t1 = clock() -t;
 			//float secs = ((float)t1)/CLOCKS_PER_SEC;
 			//if(secs > 0.01)
@@ -929,13 +950,15 @@ static int service_audio()
 			if ( audio_driver.input(&audio_driver, buf, &to_read) )
 			{
 				iaxci_usermsg(IAXC_ERROR, "ERROR reading audio\n");
+#ifndef AUDIO_PULSEAUDIO
 				break;
+#endif
 			}
-
+#ifndef AUDIO_PULSEAUDIO
 			/* Frame was not available */
 			if ( !to_read )
 				break;
-
+#endif
 			if ( audio_prefs & IAXC_AUDIO_PREF_RECV_LOCAL_RAW )
 				iaxci_do_audio_callback(selected_call, 0,
 						IAXC_SOURCE_LOCAL, 0, 0,
@@ -947,7 +970,9 @@ static int service_audio()
 						calls[selected_call].format &
 							IAXC_AUDIO_FORMAT_MASK,
 						to_read);
+#ifndef AUDIO_PULSEAUDIO
 		}
+#endif
 	}
 	else
 	{
