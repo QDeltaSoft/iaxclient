@@ -166,7 +166,7 @@ int pulse_initialize(struct iaxc_audio_driver *d, int sample_rate)
 
   // record stream pointer
   sr = pa_simple_new(NULL,
-    "FGCom",
+    "QRadioLink",
     PA_STREAM_RECORD, 
     NULL, 
     "Iax2-Client", 
@@ -177,7 +177,7 @@ int pulse_initialize(struct iaxc_audio_driver *d, int sample_rate)
   );
   // playback stream pointer
   sp = pa_simple_new(NULL, 
-    "FGCom", 
+    "QRadioLink", 
     PA_STREAM_PLAYBACK, 
     NULL, 
     "Iax2-Client", 

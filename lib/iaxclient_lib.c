@@ -918,10 +918,11 @@ static int service_audio()
 		for ( ;; )
 		{
 #endif
-			//clock_t t1 = clock() -t;
-			//float secs = ((float)t1)/CLOCKS_PER_SEC;
-			//if(secs > 0.01)
-			  //break;
+#ifdef AUDIO_PULSEAUDIO
+		for (q=0 ;q<1;q++ )
+		{
+#endif
+			
 			int to_read;
 			int cmin;
 
@@ -950,15 +951,11 @@ static int service_audio()
 			if ( audio_driver.input(&audio_driver, buf, &to_read) )
 			{
 				iaxci_usermsg(IAXC_ERROR, "ERROR reading audio\n");
-#ifndef AUDIO_PULSEAUDIO
 				break;
-#endif
 			}
-#ifndef AUDIO_PULSEAUDIO
 			/* Frame was not available */
 			if ( !to_read )
 				break;
-#endif
 			if ( audio_prefs & IAXC_AUDIO_PREF_RECV_LOCAL_RAW )
 				iaxci_do_audio_callback(selected_call, 0,
 						IAXC_SOURCE_LOCAL, 0, 0,
@@ -970,9 +967,7 @@ static int service_audio()
 						calls[selected_call].format &
 							IAXC_AUDIO_FORMAT_MASK,
 						to_read);
-#ifndef AUDIO_PULSEAUDIO
 		}
-#endif
 	}
 	else
 	{
